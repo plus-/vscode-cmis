@@ -2,147 +2,114 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { CmisAccess } from './cmisAccess'
-
-export class File implements vscode.FileStat {
-
-    objectId: string;
-    name: string;
-    type: vscode.FileType;
-    ctime: number;
-    mtime: number;
-    size: number;
-}
-
-export class Directory implements vscode.FileStat {
-
-    objectId: string;
-    name: string;
-    type: vscode.FileType;
-    ctime: number;
-    mtime: number;
-    size: number;
-}
-
-export type Entry = File | Directory;
+import { CmisAdapter, CmisEntry } from './cmisAdapter'
 
 export class CmisFileSystem implements vscode.FileSystemProvider {
 
     // --- manage file metadata
 
-    async stat(uri: vscode.Uri): Promise<Entry> {
-        try {
-            let cmisObject = await CmisAccess.getObject(uri);
+    async stat(uri: vscode.Uri): Promise<CmisEntry> {
+        let cmisObject = await CmisAdapter.getObject(uri);
 
-            return {
-                objectId: cmisObject.succinctProperties['cmis:objectId'],
-                ctime: cmisObject.succinctProperties['cmis:creationDate'],
-                mtime: cmisObject.succinctProperties['cmis:lastModificationDate'],
-                name: cmisObject.succinctProperties['cmis:name'],
-                size: 0,
-                type: this.getFileType(cmisObject)
-            };
-        }
-        catch (err) {
+        if (!cmisObject) {
             throw vscode.FileSystemError.FileNotFound(uri);
-        }
+        };
+
+        return cmisObject;
     }
 
 
     async readDirectory(uri: vscode.Uri): Promise<[string, vscode.FileType][]> {
-        let children = await CmisAccess.getChildren(uri);
+        let children = await CmisAdapter.getChildren(uri);
 
-        let result: [string, vscode.FileType][] = [];
-        for (const child of children) {
-            result.push([child.succinctProperties['cmis:name'], this.getFileType(child)]);
-        }
-        return result;
+        return children.map(child => {
+            return [child.name, child.type];
+        });
     }
 
     // --- manage file contents
 
-    async readFile(uri: vscode.Uri): Promise<Uint8Array> {
-        return CmisAccess.getContent(uri);
+    readFile(uri: vscode.Uri): Promise<Uint8Array> {
+        return CmisAdapter.getContent(uri);
     }
 
-    writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean, overwrite: boolean }): void {
-        // let basename = path.posix.basename(uri.path);
-        // let parent = this._lookupParentDirectory(uri);
-        // let entry = parent.entries.get(basename);
-        // if (entry instanceof Directory) {
-        //     throw vscode.FileSystemError.FileIsADirectory(uri);
-        // }
-        // if (!entry && !options.create) {
-        //     throw vscode.FileSystemError.FileNotFound(uri);
-        // }
-        // if (entry && options.create && !options.overwrite) {
-        //     throw vscode.FileSystemError.FileExists(uri);
-        // }
-        // if (!entry) {
-        //     entry = new File(basename);
-        //     parent.entries.set(basename, entry);
-        //     this._fireSoon({ type: vscode.FileChangeType.Created, uri });
-        // }
-        // entry.mtime = Date.now();
-        // entry.size = content.byteLength;
-        // entry.data = content;
+    async writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean, overwrite: boolean }): Promise<void> {
 
-        // this._fireSoon({ type: vscode.FileChangeType.Changed, uri });
+        let cmisObject = await CmisAdapter.getObject(uri);
+
+        if (cmisObject && cmisObject.type === vscode.FileType.Directory) {
+            throw vscode.FileSystemError.FileIsADirectory(uri);
+        };
+
+        if (!cmisObject && !options.create) {
+            throw vscode.FileSystemError.FileNotFound(uri);
+        }
+
+        if (cmisObject && options.create && !options.overwrite) {
+            throw vscode.FileSystemError.FileExists(uri);
+        }
+
+        let name = path.posix.basename(uri.path);
+
+        if (!cmisObject) {
+            let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
+            await CmisAdapter.createContent(folderUri, new Buffer(content), name);
+            this._fireSoon({ type: vscode.FileChangeType.Created, uri });
+        }
+        else {
+            CmisAdapter.writeFile(uri, new Buffer(content), name, options.overwrite);
+        }
+
+        this._fireSoon({ type: vscode.FileChangeType.Changed, uri });
     }
 
     // --- manage files/folders
 
-    rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean }): void {
+    async rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean }): Promise<void> {
 
-        // if (!options.overwrite && this._lookup(newUri)) {
-        //     throw vscode.FileSystemError.FileExists(newUri);
-        // }
+        if (!options.overwrite && await CmisAdapter.getObject(newUri)) {
+            throw vscode.FileSystemError.FileExists(newUri);
+        }
 
-        // let entry = this._lookup(oldUri);
-        // let oldParent = this._lookupParentDirectory(oldUri);
+        let name = path.posix.basename(newUri.path);
 
-        // let newParent = this._lookupParentDirectory(newUri);
-        // let newName = path.posix.basename(newUri.path);
+        CmisAdapter.rename(oldUri, name).catch(_ => {
+            throw vscode.FileSystemError.Unavailable(oldUri);
+        });
 
-        // oldParent.entries.delete(entry.name);
-        // entry.name = newName;
-        // newParent.entries.set(newName, entry);
-
-        // this._fireSoon(
-        //     { type: vscode.FileChangeType.Deleted, uri: oldUri },
-        //     { type: vscode.FileChangeType.Created, uri: newUri }
-        // );
+        this._fireSoon(
+            { type: vscode.FileChangeType.Deleted, uri: oldUri },
+            { type: vscode.FileChangeType.Created, uri: newUri }
+        );
     }
 
     delete(uri: vscode.Uri): void {
-        // let dirname = uri.with({ path: path.posix.dirname(uri.path) });
-        // let basename = path.posix.basename(uri.path);
-        // let parent = this._lookupAsDirectory(dirname);
-        // if (!parent.entries.has(basename)) {
-        //     throw vscode.FileSystemError.FileNotFound(uri);
-        // }
-        // parent.entries.delete(basename);
-        // parent.mtime = Date.now();
-        // parent.size -= 1;
-        // this._fireSoon({ type: vscode.FileChangeType.Changed, uri: dirname }, { uri, type: vscode.FileChangeType.Deleted });
+
+        CmisAdapter.delete(uri).catch(_ => {
+            throw vscode.FileSystemError.Unavailable(uri);
+        });
+
+        let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
+
+        this._fireSoon({ type: vscode.FileChangeType.Changed, uri: folderUri }, { uri, type: vscode.FileChangeType.Deleted });
     }
 
-    createDirectory(uri: vscode.Uri): void {
-        // let basename = path.posix.basename(uri.path);
-        // let dirname = uri.with({ path: path.posix.dirname(uri.path) });
-        // let parent = this._lookupAsDirectory(dirname);
+    async createDirectory(uri: vscode.Uri): Promise<void> {
 
-        // let entry = new Directory(basename);
-        // parent.entries.set(entry.name, entry);
-        // parent.mtime = Date.now();
-        // parent.size += 1;
-        // this._fireSoon({ type: vscode.FileChangeType.Changed, uri: dirname }, { type: vscode.FileChangeType.Created, uri });
+        if (await CmisAdapter.getObject(uri)) {
+            throw vscode.FileSystemError.FileExists(uri);
+        }
+
+        let name = path.posix.basename(uri.path);
+        let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
+
+        CmisAdapter.createFolder(folderUri, name);
+
+        this._fireSoon({ type: vscode.FileChangeType.Changed, uri: folderUri }, { type: vscode.FileChangeType.Created, uri });
     }
 
 
-    private getFileType(cmisObject: any): vscode.FileType {
-        return 'cmis:folder' === cmisObject.succinctProperties['cmis:baseTypeId'] ? vscode.FileType.Directory : vscode.FileType.File;
-    }
+
 
     // --- manage file events
 
