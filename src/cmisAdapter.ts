@@ -12,6 +12,9 @@ class File implements vscode.FileStat {
     ctime: number;
     mtime: number;
     size: number;
+    isWorkingCopy: boolean;
+    workingCopyLabel: string;
+    isCheckedOut: boolean;
 }
 
 export type CmisEntry = File;
@@ -33,12 +36,16 @@ export class CmisAdapter {
         return CmisAdapter.instance;
     }
 
-    public static async getObject(uri: vscode.Uri): Promise<CmisEntry | undefined> {
+    public static async getEntry(uri: vscode.Uri): Promise<CmisEntry | undefined> {
         let session = await this.getSession(uri);
 
-        return session.getObjectByPath(uri.path).then(toCmisEntry).catch(_ => {
+        let entry = await session.getObjectByPath(uri.path).then(toCmisEntry).catch(_ => {
             return;
         });
+
+        //
+
+        return entry;
     }
 
     public static async getChildren(uri: vscode.Uri): Promise<CmisEntry[]> {
@@ -52,7 +59,11 @@ export class CmisAdapter {
             });
         });
 
-        return children.map(toCmisEntry);
+        children = children.map(toCmisEntry).filter(entry => {
+            return entry.type!= vscode.FileType.File || !entry.isCheckedOut || entry.isWorkingCopy;
+        });
+
+        return children;
     }
 
     public static async getContent(uri: vscode.Uri): Promise<Buffer> {
@@ -109,6 +120,38 @@ export class CmisAdapter {
         return session.createFolder(objectId, name);
     }
 
+    public static async checkout(uri: vscode.Uri): Promise<CmisEntry> {
+        let session = await this.getSession(uri);
+        let cmisObject = await session.getObjectByPath(uri.path);
+        let objectId = cmisObject.succinctProperties['cmis:objectId'];
+
+        let workingCopy = await session.checkOut(objectId).catch(_ => {
+            throw new Error('Unable to checkout');
+        });
+        return toCmisEntry(workingCopy);
+    }
+
+    public static async cancelCheckout(uri: vscode.Uri): Promise<any> {
+        let session = await this.getSession(uri);
+        let cmisObject = await session.getObjectByPath(uri.path);
+        let objectId = cmisObject.succinctProperties['cmis:objectId'];
+
+        return session.cancelCheckOut(objectId).catch(_ => {
+            throw new Error('Unable to cancel checkout');
+        });
+    }  
+
+    public static async checkin(uri: vscode.Uri): Promise<CmisEntry> {
+        let session = await this.getSession(uri);
+        let cmisObject = await session.getObjectByPath(uri.path);
+        let objectId = cmisObject.succinctProperties['cmis:objectId'];
+
+        let originalDocument = await session.checkIn(objectId).catch(_ => {
+            throw new Error('Unable to checkin');
+        });
+        return toCmisEntry(originalDocument);
+    }  
+
     private static async getSession(uri: vscode.Uri): Promise<cmis.CmisSession> {
 
         var searchParams = new URLSearchParams(uri.query);
@@ -145,13 +188,20 @@ export class CmisAdapter {
 }
 
 function toCmisEntry(cmisObject: any): CmisEntry {
+    //cmis:versionSeriesCheckedOutId
+    //cm:lockType (READ_ONLY_LOCK)
+    //cm:lockOwner
+    
     return {
         objectId: cmisObject.succinctProperties['cmis:objectId'],
         ctime: cmisObject.succinctProperties['cmis:creationDate'],
         mtime: cmisObject.succinctProperties['cmis:lastModificationDate'],
         name: cmisObject.succinctProperties['cmis:name'],
         size: 0,
-        type: getFileType(cmisObject)
+        type: getFileType(cmisObject),
+        isWorkingCopy: cmisObject.succinctProperties['cmis:isPrivateWorkingCopy'],
+        workingCopyLabel: cmisObject.succinctProperties['cm:workingCopyLabel'],
+        isCheckedOut: cmisObject.succinctProperties['cmis:isVersionSeriesCheckedOut']
     };
 }
 

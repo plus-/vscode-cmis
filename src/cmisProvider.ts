@@ -9,20 +9,24 @@ export class CmisFileSystem implements vscode.FileSystemProvider {
     // --- manage file metadata
 
     async stat(uri: vscode.Uri): Promise<CmisEntry> {
-        let cmisObject = await CmisAdapter.getObject(uri);
+        let entry = await CmisAdapter.getEntry(uri);
 
-        if (!cmisObject) {
+        if (!entry) {
             throw vscode.FileSystemError.FileNotFound(uri);
         };
 
-        return cmisObject;
+        return entry;
     }
-
 
     async readDirectory(uri: vscode.Uri): Promise<[string, vscode.FileType][]> {
         let children = await CmisAdapter.getChildren(uri);
 
         return children.map(child => {
+
+            //TODO: use decoration provider once API is public (see https://github.com/Microsoft/vscode/issues/54938)
+            // to visualize working copy and trim the working copy label from the name:
+            //let name = child.isWorkingCopy?child.name.replace(' ' + child.workingCopyLabel, ''):child.name;
+
             return [child.name, child.type];
         });
     }
@@ -35,23 +39,23 @@ export class CmisFileSystem implements vscode.FileSystemProvider {
 
     async writeFile(uri: vscode.Uri, content: Uint8Array, options: { create: boolean, overwrite: boolean }): Promise<void> {
 
-        let cmisObject = await CmisAdapter.getObject(uri);
+        let entry = await CmisAdapter.getEntry(uri);
 
-        if (cmisObject && cmisObject.type === vscode.FileType.Directory) {
+        if (entry && entry.type === vscode.FileType.Directory) {
             throw vscode.FileSystemError.FileIsADirectory(uri);
         };
 
-        if (!cmisObject && !options.create) {
+        if (!entry && !options.create) {
             throw vscode.FileSystemError.FileNotFound(uri);
         }
 
-        if (cmisObject && options.create && !options.overwrite) {
+        if (entry && options.create && !options.overwrite) {
             throw vscode.FileSystemError.FileExists(uri);
         }
 
         let name = path.posix.basename(uri.path);
 
-        if (!cmisObject) {
+        if (!entry) {
             let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
             await CmisAdapter.createContent(folderUri, new Buffer(content), name);
             this._fireSoon({ type: vscode.FileChangeType.Created, uri });
@@ -67,7 +71,7 @@ export class CmisFileSystem implements vscode.FileSystemProvider {
 
     async rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean }): Promise<void> {
 
-        if (!options.overwrite && await CmisAdapter.getObject(newUri)) {
+        if (!options.overwrite && await CmisAdapter.getEntry(newUri)) {
             throw vscode.FileSystemError.FileExists(newUri);
         }
 
@@ -96,7 +100,7 @@ export class CmisFileSystem implements vscode.FileSystemProvider {
 
     async createDirectory(uri: vscode.Uri): Promise<void> {
 
-        if (await CmisAdapter.getObject(uri)) {
+        if (await CmisAdapter.getEntry(uri)) {
             throw vscode.FileSystemError.FileExists(uri);
         }
 
@@ -108,8 +112,62 @@ export class CmisFileSystem implements vscode.FileSystemProvider {
         this._fireSoon({ type: vscode.FileChangeType.Changed, uri: folderUri }, { type: vscode.FileChangeType.Created, uri });
     }
 
+    async checkout(uri: vscode.Uri) {
+         let entry = await CmisAdapter.getEntry(uri);
 
+        if (!entry) {
+            throw vscode.FileSystemError.FileNotFound(uri);
+        };
 
+        if (!entry.isCheckedOut) {
+            let workingCopy = await CmisAdapter.checkout(uri);
+
+            let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
+
+            this._fireSoon(
+                { type: vscode.FileChangeType.Changed, uri: folderUri }, 
+                { uri, type: vscode.FileChangeType.Deleted }
+            );
+        }
+    }
+
+    async cancelCheckout(uri: vscode.Uri) {
+         let entry = await CmisAdapter.getEntry(uri);
+
+        if (!entry) {
+            throw vscode.FileSystemError.FileNotFound(uri);
+        };
+
+        if (entry.isCheckedOut) {
+            await CmisAdapter.cancelCheckout(uri);
+
+            let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
+
+            this._fireSoon(
+                { type: vscode.FileChangeType.Changed, uri: folderUri }, 
+                { uri, type: vscode.FileChangeType.Deleted }
+            );
+        }
+    }
+
+    async checkin(uri: vscode.Uri) {
+         let entry = await CmisAdapter.getEntry(uri);
+
+        if (!entry) {
+            throw vscode.FileSystemError.FileNotFound(uri);
+        };
+
+        if (entry.isCheckedOut) {
+            let originalDocument = await CmisAdapter.checkin(uri);
+
+            let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
+
+            this._fireSoon(
+                { type: vscode.FileChangeType.Changed, uri: folderUri }, 
+                { uri, type: vscode.FileChangeType.Deleted }
+            );
+        }
+    }
 
     // --- manage file events
 

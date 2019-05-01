@@ -20,3 +20,8 @@ Open a new workspace:
 }
 
 ````
+
+### TODO:
+* working copy indicator
+* read-only mode for locked documents
+

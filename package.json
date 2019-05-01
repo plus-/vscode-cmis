@@ -19,7 +19,7 @@
 	],
 	"activationEvents": [
 		"onFileSystem:cmis",
-		"onCommand:cmis.workspaceInit",
+		"onCommand:cmis.checkout",
 		"onCommand:cmis.init",
 		"onCommand:cmis.reset"
 	],
@@ -27,34 +27,48 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "cmis.workspaceInit",
-				"title": "Setup Workspace",
+				"command": "cmis.checkout",
+				"title": "CheckOut",
 				"category": "CMIS FileSystem"
 			},
 			{
-				"command": "cmis.init",
-				"title": "Create Files",
+				"command": "cmis.cancelCheckout",
+				"title": "Cancel CheckOut",
 				"category": "CMIS FileSystem"
 			},
 			{
-				"command": "cmis.reset",
-				"title": "Delete Files",
+				"command": "cmis.checkin",
+				"title": "CheckIn",
 				"category": "CMIS FileSystem"
 			}
 		],
 		"menus": {
+			"explorer/context": [
+				{
+					"command": "cmis.checkout",
+					"when": "resourceScheme == cmis"
+				},
+				{
+					"command": "cmis.cancelCheckout",
+					"when": "resourceScheme == cmis"
+				},
+				{
+					"command": "cmis.checkin",
+					"when": "resourceScheme == cmis"
+				}
+			],
 			"commandPalette": [
 				{
-					"command": "cmis.init",
-					"when": "workbenchState == workspace"
+					"command": "cmis.checkout",
+					"when": "resourceScheme == cmis"
 				},
 				{
-					"command": "cmis.reset",
-					"when": "workbenchState == workspace"
+					"command": "cmis.cancelCheckout",
+					"when": "resourceScheme == cmis"
 				},
 				{
-					"command": "cmis.workspaceInit",
-					"when": "workbenchState != workspace"
+					"command": "cmis.checkin",
+					"when": "resourceScheme == cmis"
 				}
 			]
 		}
