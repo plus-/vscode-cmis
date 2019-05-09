@@ -15,6 +15,7 @@ class File implements vscode.FileStat {
     isWorkingCopy: boolean;
     workingCopyLabel: string;
     isCheckedOut: boolean;
+    lastModifiedBy: string;
 }
 
 export type CmisEntry = File;
@@ -26,6 +27,7 @@ export class CmisAdapter {
 
     private static instance: CmisAdapter;
     private sessionCache = {};
+    private entryCache = {};
 
     private constructor() { }
 
@@ -43,9 +45,13 @@ export class CmisAdapter {
             return;
         });
 
-        //
+        CmisAdapter.getInstance().entryCache[uri.toString()] = entry;
 
         return entry;
+    }
+
+    public static getEntryFromCache(uri: vscode.Uri): CmisEntry | undefined {
+        return CmisAdapter.getInstance().entryCache[uri.toString()];
     }
 
     public static async getChildren(uri: vscode.Uri): Promise<CmisEntry[]> {
@@ -60,7 +66,7 @@ export class CmisAdapter {
         });
 
         children = children.map(toCmisEntry).filter(entry => {
-            return entry.type!= vscode.FileType.File || !entry.isCheckedOut || entry.isWorkingCopy;
+            return entry.type != vscode.FileType.File || !entry.isCheckedOut || entry.isWorkingCopy;
         });
 
         return children;
@@ -139,7 +145,7 @@ export class CmisAdapter {
         return session.cancelCheckOut(objectId).catch(_ => {
             throw new Error('Unable to cancel checkout');
         });
-    }  
+    }
 
     public static async checkin(uri: vscode.Uri): Promise<CmisEntry> {
         let session = await this.getSession(uri);
@@ -150,7 +156,7 @@ export class CmisAdapter {
             throw new Error('Unable to checkin');
         });
         return toCmisEntry(originalDocument);
-    }  
+    }
 
     private static async getSession(uri: vscode.Uri): Promise<cmis.CmisSession> {
 
@@ -191,7 +197,7 @@ function toCmisEntry(cmisObject: any): CmisEntry {
     //cmis:versionSeriesCheckedOutId
     //cm:lockType (READ_ONLY_LOCK)
     //cm:lockOwner
-    
+
     return {
         objectId: cmisObject.succinctProperties['cmis:objectId'],
         ctime: cmisObject.succinctProperties['cmis:creationDate'],
@@ -201,7 +207,8 @@ function toCmisEntry(cmisObject: any): CmisEntry {
         type: getFileType(cmisObject),
         isWorkingCopy: cmisObject.succinctProperties['cmis:isPrivateWorkingCopy'],
         workingCopyLabel: cmisObject.succinctProperties['cm:workingCopyLabel'],
-        isCheckedOut: cmisObject.succinctProperties['cmis:isVersionSeriesCheckedOut']
+        isCheckedOut: cmisObject.succinctProperties['cmis:isVersionSeriesCheckedOut'],
+        lastModifiedBy: cmisObject.succinctProperties['cmis:lastModifiedBy']
     };
 }
 

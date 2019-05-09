@@ -22,6 +22,6 @@ Open a new workspace:
 ````
 
 ### TODO:
-* working copy indicator
-* read-only mode for locked documents
+* working copy indicator in explorer
+* read-only mode for locked documents (https://github.com/microsoft/vscode/issues/73122)
 
