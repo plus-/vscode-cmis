@@ -18,14 +18,21 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onFileSystem:cmis",
-		"onCommand:cmis.checkout",
-		"onCommand:cmis.init",
-		"onCommand:cmis.reset"
+		"onFileSystem:cmis"
 	],
 	"main": "./out/src/extension",
 	"contributes": {
 		"commands": [
+			{
+				"command": "cmis.open",
+				"title": "Open via CMIS",
+				"category": "CMIS FileSystem"
+			},
+			{
+				"command": "cmis.refresh",
+				"title": "Refresh",
+				"category": "CMIS FileSystem"
+			},
 			{
 				"command": "cmis.checkout",
 				"title": "CheckOut",
@@ -43,32 +50,32 @@
 			}
 		],
 		"menus": {
-			"explorer/context": [
+			"editor/title": [
 				{
-					"command": "cmis.checkout",
-					"when": "resourceScheme == cmis"
-				},
-				{
-					"command": "cmis.cancelCheckout",
-					"when": "resourceScheme == cmis"
-				},
-				{
-					"command": "cmis.checkin",
-					"when": "resourceScheme == cmis"
+					"command": "cmis.open",
+					"group": "CMIS"
 				}
 			],
-			"commandPalette": [
+			"explorer/context": [
+				{
+					"command": "cmis.refresh",
+					"when": "resourceScheme == cmis",
+					"group": "CMIS@1"
+				},
 				{
 					"command": "cmis.checkout",
-					"when": "resourceScheme == cmis"
+					"when": "resourceScheme == cmis",
+					"group": "CMIS@2"
 				},
 				{
 					"command": "cmis.cancelCheckout",
-					"when": "resourceScheme == cmis"
+					"when": "resourceScheme == cmis",
+					"group": "CMIS@3"
 				},
 				{
 					"command": "cmis.checkin",
-					"when": "resourceScheme == cmis"
+					"when": "resourceScheme == cmis",
+					"group": "CMIS@4"
 				}
 			]
 		}

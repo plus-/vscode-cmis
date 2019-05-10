@@ -112,8 +112,26 @@ export class CmisFileSystem implements vscode.FileSystemProvider {
         this._fireSoon({ type: vscode.FileChangeType.Changed, uri: folderUri }, { type: vscode.FileChangeType.Created, uri });
     }
 
+    async refresh(uri: vscode.Uri) {
+        let entry = await CmisAdapter.getEntry(uri);
+
+        if (!entry) {
+            throw vscode.FileSystemError.FileNotFound(uri);
+        }
+
+        if (entry.type === vscode.FileType.File) {
+            await CmisAdapter.getEntry(uri, true);
+        } else if (entry.type === vscode.FileType.Directory) {
+            let i = 1;
+        }
+
+        this._fireSoon(
+            { uri, type: vscode.FileChangeType.Changed }
+        );
+    }
+
     async checkout(uri: vscode.Uri) {
-         let entry = await CmisAdapter.getEntry(uri);
+        let entry = await CmisAdapter.getEntry(uri);
 
         if (!entry) {
             throw vscode.FileSystemError.FileNotFound(uri);
@@ -125,14 +143,14 @@ export class CmisFileSystem implements vscode.FileSystemProvider {
             let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
 
             this._fireSoon(
-                { type: vscode.FileChangeType.Changed, uri: folderUri }, 
+                { type: vscode.FileChangeType.Changed, uri: folderUri },
                 { uri, type: vscode.FileChangeType.Deleted }
             );
         }
     }
 
     async cancelCheckout(uri: vscode.Uri) {
-         let entry = await CmisAdapter.getEntry(uri);
+        let entry = await CmisAdapter.getEntry(uri);
 
         if (!entry) {
             throw vscode.FileSystemError.FileNotFound(uri);
@@ -144,14 +162,14 @@ export class CmisFileSystem implements vscode.FileSystemProvider {
             let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
 
             this._fireSoon(
-                { type: vscode.FileChangeType.Changed, uri: folderUri }, 
+                { type: vscode.FileChangeType.Changed, uri: folderUri },
                 { uri, type: vscode.FileChangeType.Deleted }
             );
         }
     }
 
     async checkin(uri: vscode.Uri) {
-         let entry = await CmisAdapter.getEntry(uri);
+        let entry = await CmisAdapter.getEntry(uri);
 
         if (!entry) {
             throw vscode.FileSystemError.FileNotFound(uri);
@@ -163,7 +181,7 @@ export class CmisFileSystem implements vscode.FileSystemProvider {
             let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
 
             this._fireSoon(
-                { type: vscode.FileChangeType.Changed, uri: folderUri }, 
+                { type: vscode.FileChangeType.Changed, uri: folderUri },
                 { uri, type: vscode.FileChangeType.Deleted }
             );
         }

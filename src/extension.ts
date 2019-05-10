@@ -14,6 +14,8 @@ export function activate({ subscriptions }: vscode.ExtensionContext) {
     const cmisFs = new CmisFileSystem();
     subscriptions.push(vscode.workspace.registerFileSystemProvider('cmis', cmisFs, { isCaseSensitive: true }));
 
+    subscriptions.push(vscode.commands.registerCommand('cmis.open', cmisFs.refresh)); //TODO
+    subscriptions.push(vscode.commands.registerCommand('cmis.refresh', cmisFs.refresh));
     subscriptions.push(vscode.commands.registerCommand('cmis.checkout', cmisFs.checkout));
     subscriptions.push(vscode.commands.registerCommand('cmis.cancelCheckout', cmisFs.cancelCheckout));
     subscriptions.push(vscode.commands.registerCommand('cmis.checkin', cmisFs.checkin));
@@ -23,13 +25,13 @@ export function activate({ subscriptions }: vscode.ExtensionContext) {
     subscriptions.push(vscode.window.onDidChangeActiveTextEditor(updateStatusBarItem));
 }
 
-function updateStatusBarItem(): void {
+async function updateStatusBarItem(): Promise<void> {
     let editor = vscode.window.activeTextEditor;
 
     if (editor && editor.document.uri && editor.document.uri.scheme === 'cmis') {
 
         //XXX: does the fileSystemProvider store the stat info somewhere already?
-        let cmisEntry = CmisAdapter.getEntryFromCache(editor.document.uri);
+        let cmisEntry = await CmisAdapter.getEntry(editor.document.uri);
 
         if (cmisEntry && cmisEntry.isCheckedOut && cmisEntry.isWorkingCopy) {
 

@@ -38,19 +38,23 @@ export class CmisAdapter {
         return CmisAdapter.instance;
     }
 
-    public static async getEntry(uri: vscode.Uri): Promise<CmisEntry | undefined> {
+    public static async getEntry(uri: vscode.Uri, forceRefresh: boolean = false): Promise<CmisEntry | undefined> {
         let session = await this.getSession(uri);
 
-        let entry = await session.getObjectByPath(uri.path).then(toCmisEntry).catch(_ => {
-            return;
-        });
+        let entry = this.getEntryFromCache(uri);
 
-        CmisAdapter.getInstance().entryCache[uri.toString()] = entry;
+        if (!entry || forceRefresh) {
+            entry = await session.getObjectByPath(uri.path).then(toCmisEntry).catch(_ => {
+                return;
+            });
+
+            CmisAdapter.getInstance().entryCache[uri.toString()] = entry;
+        }
 
         return entry;
     }
 
-    public static getEntryFromCache(uri: vscode.Uri): CmisEntry | undefined {
+    private static getEntryFromCache(uri: vscode.Uri): CmisEntry | undefined {
         return CmisAdapter.getInstance().entryCache[uri.toString()];
     }
 
@@ -195,8 +199,6 @@ export class CmisAdapter {
 
 function toCmisEntry(cmisObject: any): CmisEntry {
     //cmis:versionSeriesCheckedOutId
-    //cm:lockType (READ_ONLY_LOCK)
-    //cm:lockOwner
 
     return {
         objectId: cmisObject.succinctProperties['cmis:objectId'],
@@ -206,9 +208,11 @@ function toCmisEntry(cmisObject: any): CmisEntry {
         size: 0,
         type: getFileType(cmisObject),
         isWorkingCopy: cmisObject.succinctProperties['cmis:isPrivateWorkingCopy'],
-        workingCopyLabel: cmisObject.succinctProperties['cm:workingCopyLabel'],
         isCheckedOut: cmisObject.succinctProperties['cmis:isVersionSeriesCheckedOut'],
-        lastModifiedBy: cmisObject.succinctProperties['cmis:lastModifiedBy']
+        lastModifiedBy: cmisObject.succinctProperties['cmis:lastModifiedBy'],
+
+        //XXX: this is specific to Alfresco and should go away
+        workingCopyLabel: cmisObject.succinctProperties['cm:workingCopyLabel']
     };
 }
 
