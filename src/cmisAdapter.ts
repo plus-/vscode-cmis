@@ -130,38 +130,6 @@ export class CmisAdapter {
         return session.createFolder(objectId, name);
     }
 
-    public static async checkout(uri: vscode.Uri): Promise<CmisEntry> {
-        let session = await this.getSession(uri);
-        let cmisObject = await session.getObjectByPath(uri.path);
-        let objectId = cmisObject.succinctProperties['cmis:objectId'];
-
-        let workingCopy = await session.checkOut(objectId).catch(_ => {
-            throw new Error('Unable to checkout');
-        });
-        return toCmisEntry(workingCopy);
-    }
-
-    public static async cancelCheckout(uri: vscode.Uri): Promise<any> {
-        let session = await this.getSession(uri);
-        let cmisObject = await session.getObjectByPath(uri.path);
-        let objectId = cmisObject.succinctProperties['cmis:objectId'];
-
-        return session.cancelCheckOut(objectId).catch(_ => {
-            throw new Error('Unable to cancel checkout');
-        });
-    }
-
-    public static async checkin(uri: vscode.Uri): Promise<CmisEntry> {
-        let session = await this.getSession(uri);
-        let cmisObject = await session.getObjectByPath(uri.path);
-        let objectId = cmisObject.succinctProperties['cmis:objectId'];
-
-        let originalDocument = await session.checkIn(objectId).catch(_ => {
-            throw new Error('Unable to checkin');
-        });
-        return toCmisEntry(originalDocument);
-    }
-
     private static async getSession(uri: vscode.Uri): Promise<cmis.CmisSession> {
 
         var searchParams = new URLSearchParams(uri.query);
