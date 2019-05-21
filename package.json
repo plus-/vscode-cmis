@@ -21,65 +21,6 @@
 		"onFileSystem:cmis"
 	],
 	"main": "./out/src/extension",
-	"contributes": {
-		"commands": [
-			{
-				"command": "cmis.open",
-				"title": "Open via CMIS",
-				"category": "CMIS FileSystem"
-			},
-			{
-				"command": "cmis.refresh",
-				"title": "Refresh",
-				"category": "CMIS FileSystem"
-			},
-			{
-				"command": "cmis.checkout",
-				"title": "CheckOut",
-				"category": "CMIS FileSystem"
-			},
-			{
-				"command": "cmis.cancelCheckout",
-				"title": "Cancel CheckOut",
-				"category": "CMIS FileSystem"
-			},
-			{
-				"command": "cmis.checkin",
-				"title": "CheckIn",
-				"category": "CMIS FileSystem"
-			}
-		],
-		"menus": {
-			"editor/title": [
-				{
-					"command": "cmis.open",
-					"group": "CMIS"
-				}
-			],
-			"explorer/context": [
-				{
-					"command": "cmis.refresh",
-					"when": "resourceScheme == cmis",
-					"group": "CMIS@1"
-				},
-				{
-					"command": "cmis.checkout",
-					"when": "resourceScheme == cmis",
-					"group": "CMIS@2"
-				},
-				{
-					"command": "cmis.cancelCheckout",
-					"when": "resourceScheme == cmis",
-					"group": "CMIS@3"
-				},
-				{
-					"command": "cmis.checkin",
-					"when": "resourceScheme == cmis",
-					"group": "CMIS@4"
-				}
-			]
-		}
-	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",
