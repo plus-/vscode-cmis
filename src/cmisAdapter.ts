@@ -189,8 +189,8 @@ export class CmisAdapter {
             let session = new cmis.CmisSession(url);
             await session.setCredentials(authority.user, authority.password).loadRepositories();
 
-            cacheEntry = session;
-            return cacheEntry;
+            CmisAdapter.getInstance().sessionCache[sessionKey] = session;
+            return session;
         } else {
             return cacheEntry;
         }
