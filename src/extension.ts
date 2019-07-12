@@ -1,5 +1,3 @@
-'use strict';
-
 import * as vscode from 'vscode';
 import { CmisFileSystem } from './cmisProvider';
 import { CmisAdapter } from './cmisAdapter';

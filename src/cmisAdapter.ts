@@ -1,5 +1,3 @@
-'use strict';
-
 import * as cmis from 'cmis';
 import * as Uris from './uris';
 import * as vscode from 'vscode';
@@ -82,10 +80,8 @@ export class CmisAdapter {
         let objectId = cmisObject.succinctProperties['cmis:objectId'];
 
         let contentStream = await session.getContentStream(objectId);
-
-        return contentStream.text().then(data => {
-            return new Buffer(data);
-        });
+        let data = await contentStream.text();
+        return new Buffer(data);
     }
 
     public static async createContent(uri: vscode.Uri, content: Buffer, name: string): Promise<void> {
@@ -101,7 +97,7 @@ export class CmisAdapter {
         let cmisObject = await session.getObjectByPath(uri.path);
         let objectId = cmisObject.succinctProperties['cmis:objectId'];
 
-        return session.setContentStream(objectId, content, overwrite, name);
+        return session.setContentStream(objectId, content.toString('utf8'), overwrite, name);
     }
 
     public static async rename(uri: vscode.Uri, name: string): Promise<any> {
@@ -156,10 +152,15 @@ export class CmisAdapter {
         let cmisObject = await session.getObjectByPath(uri.path);
         let objectId = cmisObject.succinctProperties['cmis:objectId'];
 
-        let originalDocument = await session.checkIn(objectId).catch(_ => {
+        let contentStream = await session.getContentStream(objectId);
+        let data = await contentStream.text();
+
+        let originalDocument = await session.checkIn(objectId, true, null, new Buffer(data), null).catch(_ => {
             throw new Error('Unable to checkin');
         });
         return toCmisEntry(originalDocument);
+        
+       
     }
 
     private static async getSession(uri: vscode.Uri): Promise<cmis.CmisSession> {

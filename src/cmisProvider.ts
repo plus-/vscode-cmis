@@ -1,5 +1,3 @@
-'use strict';
-
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { CmisAdapter, CmisEntry } from './cmisAdapter'
@@ -12,7 +10,7 @@ export class CmisFileSystem implements vscode.FileSystemProvider {
         let entry = await CmisAdapter.getEntry(uri);
 
         if (!entry) {
-            throw vscode.FileSystemError.FileNotFound(uri);
+            throw vscode.FileSystemError.FileNotFound();
         };
 
         return entry;
@@ -42,15 +40,15 @@ export class CmisFileSystem implements vscode.FileSystemProvider {
         let entry = await CmisAdapter.getEntry(uri);
 
         if (entry && entry.type === vscode.FileType.Directory) {
-            throw vscode.FileSystemError.FileIsADirectory(uri);
+            throw vscode.FileSystemError.FileIsADirectory();
         };
 
         if (!entry && !options.create) {
-            throw vscode.FileSystemError.FileNotFound(uri);
+            throw vscode.FileSystemError.FileNotFound();
         }
 
         if (entry && options.create && !options.overwrite) {
-            throw vscode.FileSystemError.FileExists(uri);
+            throw vscode.FileSystemError.FileExists();
         }
 
         let name = path.posix.basename(uri.path);
@@ -72,7 +70,7 @@ export class CmisFileSystem implements vscode.FileSystemProvider {
     async rename(oldUri: vscode.Uri, newUri: vscode.Uri, options: { overwrite: boolean }): Promise<void> {
 
         if (!options.overwrite && await CmisAdapter.getEntry(newUri)) {
-            throw vscode.FileSystemError.FileExists(newUri);
+            throw vscode.FileSystemError.FileExists();
         }
 
         let name = path.posix.basename(newUri.path);
@@ -101,7 +99,7 @@ export class CmisFileSystem implements vscode.FileSystemProvider {
     async createDirectory(uri: vscode.Uri): Promise<void> {
 
         if (await CmisAdapter.getEntry(uri)) {
-            throw vscode.FileSystemError.FileExists(uri);
+            throw vscode.FileSystemError.FileExists();
         }
 
         let name = path.posix.basename(uri.path);
@@ -130,60 +128,79 @@ export class CmisFileSystem implements vscode.FileSystemProvider {
         );
     }
 
-    async checkout(uri: vscode.Uri) {
-        let entry = await CmisAdapter.getEntry(uri);
+    async checkout() {
 
-        if (!entry) {
-            throw vscode.FileSystemError.FileNotFound(uri);
-        };
+        if (vscode.window.activeTextEditor) {
+            let uri = vscode.window.activeTextEditor.document.uri;
 
-        if (!entry.isCheckedOut) {
-            let workingCopy = await CmisAdapter.checkout(uri);
+            let entry = await CmisAdapter.getEntry(uri);
+    
+            if (!entry) {
+                throw vscode.FileSystemError.FileNotFound(uri);
+            };
+    
+            if (!entry.isCheckedOut) {
+                let workingCopy = await CmisAdapter.checkout(uri);
+    
+                let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
+    
+                this._fireSoon(
+                    { type: vscode.FileChangeType.Changed, uri: folderUri },
+                    { uri, type: vscode.FileChangeType.Deleted }
+                );
+            }
+            else {
+                vscode.window.showErrorMessage("File already checked out.");
+            }
+        }
 
-            let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
+        
+    }
 
-            this._fireSoon(
-                { type: vscode.FileChangeType.Changed, uri: folderUri },
-                { uri, type: vscode.FileChangeType.Deleted }
-            );
+    async cancelCheckout() {
+        if (vscode.window.activeTextEditor) {
+            let uri = vscode.window.activeTextEditor.document.uri;
+
+            let entry = await CmisAdapter.getEntry(uri);
+
+            if (!entry) {
+                throw vscode.FileSystemError.FileNotFound(uri);
+            };
+
+            if (entry.isCheckedOut) {
+                await CmisAdapter.cancelCheckout(uri);
+
+                let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
+
+                this._fireSoon(
+                    { type: vscode.FileChangeType.Changed, uri: folderUri },
+                    { uri, type: vscode.FileChangeType.Deleted }
+                );
+            }
         }
     }
 
-    async cancelCheckout(uri: vscode.Uri) {
-        let entry = await CmisAdapter.getEntry(uri);
+    async checkin() {
 
-        if (!entry) {
-            throw vscode.FileSystemError.FileNotFound(uri);
-        };
+        if (vscode.window.activeTextEditor) {
+            let uri = vscode.window.activeTextEditor.document.uri;
 
-        if (entry.isCheckedOut) {
-            await CmisAdapter.cancelCheckout(uri);
+            let entry = await CmisAdapter.getEntry(uri);
 
-            let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
+            if (!entry) {
+                throw vscode.FileSystemError.FileNotFound(uri);
+            };
 
-            this._fireSoon(
-                { type: vscode.FileChangeType.Changed, uri: folderUri },
-                { uri, type: vscode.FileChangeType.Deleted }
-            );
-        }
-    }
+            if (entry.isCheckedOut) {
+                let originalDocument = await CmisAdapter.checkin(uri);
 
-    async checkin(uri: vscode.Uri) {
-        let entry = await CmisAdapter.getEntry(uri);
+                let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
 
-        if (!entry) {
-            throw vscode.FileSystemError.FileNotFound(uri);
-        };
-
-        if (entry.isCheckedOut) {
-            let originalDocument = await CmisAdapter.checkin(uri);
-
-            let folderUri = uri.with({ path: path.posix.dirname(uri.path) });
-
-            this._fireSoon(
-                { type: vscode.FileChangeType.Changed, uri: folderUri },
-                { uri, type: vscode.FileChangeType.Deleted }
-            );
+                this._fireSoon(
+                    { type: vscode.FileChangeType.Changed, uri: folderUri },
+                    { uri, type: vscode.FileChangeType.Deleted }
+                );
+            }
         }
     }
 

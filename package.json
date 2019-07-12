@@ -36,7 +36,8 @@
 			{
 				"command": "cmis.checkout",
 				"title": "CheckOut",
-				"category": "CMIS FileSystem"
+				"category": "CMIS FileSystem",
+				"enablement": "resourceScheme == cmis"
 			},
 			{
 				"command": "cmis.cancelCheckout",
@@ -61,21 +62,6 @@
 					"command": "cmis.refresh",
 					"when": "resourceScheme == cmis",
 					"group": "CMIS@1"
-				},
-				{
-					"command": "cmis.checkout",
-					"when": "resourceScheme == cmis",
-					"group": "CMIS@2"
-				},
-				{
-					"command": "cmis.cancelCheckout",
-					"when": "resourceScheme == cmis",
-					"group": "CMIS@3"
-				},
-				{
-					"command": "cmis.checkin",
-					"when": "resourceScheme == cmis",
-					"group": "CMIS@4"
 				}
 			]
 		}
